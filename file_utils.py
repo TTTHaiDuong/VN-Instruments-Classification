@@ -2,6 +2,9 @@ import os
 from pydub import AudioSegment
 import argparse
 import shutil
+import hashlib
+import librosa
+from collections import defaultdict
 
 
 
@@ -248,11 +251,105 @@ def split_audio_by_timestamps(input_file, output_dir, cut_points):
 
 
 
+def get_audio_hash(file_path, sr=22050):
+    """
+    Tính hàm băm (hash) của nội dung âm thanh.
+    
+    Parameters:
+        file_path (str): Đường dẫn đến file âm thanh.
+        sr (int): Tần số lấy mẫu để chuẩn hóa.
+    
+    Returns:
+        str: Giá trị hash của tín hiệu âm thanh.
+    """
+    try:
+        # Tải tín hiệu âm thanh
+        y, _ = librosa.load(file_path, sr=sr, mono=True)
+        
+        # Chuẩn hóa tín hiệu: cắt bỏ khoảng lặng đầu/cuối
+        y, _ = librosa.effects.trim(y)
+        
+        # Chuyển thành byte để băm
+        y_bytes = y.tobytes()
+        
+        # Tính hash bằng SHA-256
+        return hashlib.sha256(y_bytes).hexdigest()
+    except Exception as e:
+        print(f"Lỗi khi xử lý {file_path}: {e}")
+        return None
+
+
+
+def find_duplicate_audio_files(input_dir, sr=22050, extensions=('.wav', '.mp3')):
+    """
+    Tìm các file âm thanh trùng nhau trong thư mục.
+    
+    Parameters:
+        input_dir (str): Đường dẫn đến thư mục chứa file âm thanh.
+        sr (int): Tần số lấy mẫu.
+        extensions (tuple): Danh sách phần mở rộng file hỗ trợ.
+    
+    Returns:
+        dict: Dictionary chứa các nhóm file trùng nhau.
+    """
+    # Dictionary để lưu hash và danh sách file tương ứng
+    hash_to_files = defaultdict(list)
+    
+    # Duyệt qua tất cả file trong thư mục
+    for root, _, files in os.walk(input_dir):
+        for f in files:
+            if f.lower().endswith(extensions):
+                file_path = os.path.join(root, f)
+                file_hash = get_audio_hash(file_path, sr=sr)
+                
+                if file_hash:
+                    hash_to_files[file_hash].append(file_path)
+    
+    # Lọc các hash có nhiều hơn 1 file (tức là trùng nhau)
+    duplicates = {h: files for h, files in hash_to_files.items() if len(files) > 1}
+    
+    return duplicates
+
+
+
+def remove_duplicates(input_dir):
+    """
+    Xóa các file âm thanh trùng nhau trong thư mục.
+    """
+    duplicates = find_duplicate_audio_files(
+            input_dir=input_dir,
+            sr=22050,
+            extensions=('.wav', '.mp3')
+        )
+    
+    for file_paths in duplicates.values():
+        for f in file_paths[1:]:
+            os.remove(f)
+            print(f"Đã xóa: {f}")
+
+
+
+def print_duplicates(duplicates):
+    """
+    In danh sách các file trùng nhau.
+    """
+    if not duplicates:
+        print("Không tìm thấy file trùng.")
+        return
+    
+    print("Các file âm thanh trùng nhau:")
+    for hash_value, files in duplicates.items():
+        print(f"\nHash: {hash_value}")
+        for f in files:
+            print(f"  - {f}")
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="Chuyển đổi và cắt file âm thanh.")
     parser.add_argument("-cv", "--cover", action="store_true", help="Chuyển các file mp3 sang wav.")
     parser.add_argument("-p", "--path", type=str, help="Đường dẫn file âm thanh.")
-    parser.add_argument("-c", "--cuts", type=float, nargs='+', help="Các thời điểm cắt (tính bằng giây).")
+    parser.add_argument("-c", "--cuts", type=str, nargs='+', help="Các thời điểm cắt (tính bằng giây).")
     parser.add_argument("-s", "--split", action="store_true", help="Cắt các file wav thành các đoạn nhỏ hơn.")
     parser.add_argument("-r", "--rename", type=int, default=None, help="Đổi tên các file wav đã cắt thành dãy tên có thứ tự. Tham số là số thứ tự bắt đầu.")
     
@@ -267,7 +364,9 @@ def main():
         if not os.path.isfile(args.path):
             raise ValueError(f"Đường dẫn {args.path} không phải là file.")
         
-        cut_points = [float(x) for x in args.cuts]
+        time_seconds = [int(m) * 60 + int(s) for m, s in (t.split(":") for t in args.cuts)]
+
+        cut_points = [float(x) for x in time_seconds]
         split_audio_by_timestamps(
             input_file=args.path,
             output_dir=r"C:\Users\tranh\Downloads\Temp",
@@ -282,13 +381,13 @@ def main():
         ) 
 
     elif args.rename is not None:
-        rename_files(r"dataset\test\danbau", "danbau", 3, args.rename)
+        rename_files(r"rawdata\cut", "dantranh", 3, args.rename)
     
     elif args.move:
-        move_files(r"rawdata\cut", r"rawdata\val\danbau")
+        move_files(r"rawdata\cut", r"rawdata\train\dantranh")
     
     elif args.countfile:
-        dir_path = r'rawdata\val\danbau'
+        dir_path = r'rawdata\train\dantranh'
         dir_name = os.path.basename(dir_path)
         print(f"Số lượng file trong thư mục {dir_name}: {count_files(dir_path)}")
 
@@ -298,4 +397,17 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    print_duplicates(
+        find_duplicate_audio_files(
+            input_dir=r"rawdata\train\sao",
+            sr=22050,
+            extensions=('.wav', '.mp3')
+        )
+    )
+
+    # remove_duplicates(
+    #     input_dir=r"rawdata\train\dantranh"
+    # )
+    # main()
+
+    

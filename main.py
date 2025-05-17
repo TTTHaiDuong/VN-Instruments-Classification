@@ -10,10 +10,10 @@ from tensorflow.keras.utils import to_categorical
 from PIL import Image
 from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift
 import matplotlib.pyplot as plt
-from utils import audio_to_mel_spectrogram
+from mel_spec import audio_to_mel_spectrogram
 from build.model1 import get_model1
 from config import *
-from utils import *
+from mel_spec import *
 from collections import Counter
 from pydub import AudioSegment
 
@@ -26,7 +26,6 @@ def predict_instrument(model, input_file):
         n_mels=N_MELS, 
         hop_length=HOP_LENGTH, 
         n_fft=N_FFT, 
-        fixed_length=128, 
         sr=SR, 
         duration=None, 
         input_shape=INPUT_SHAPE)
@@ -49,6 +48,67 @@ def plot_probabilities(probabilities):
     plt.show()
 
 
+def print_prediction_results(predictions, class_names, top_k=4):
+    """
+    In tên nhạc cụ được dự đoán và xác suất từng lớp.
+
+    Parameters:
+        predictions (np.ndarray): Kết quả trả về từ model.predict(), shape (1, num_classes)
+        class_names (list): Danh sách tên các lớp, ví dụ: ['dantranh', 'danbau', 'dannhi', 'sao']
+        top_k (int): Số lớp muốn hiển thị (mặc định: tất cả)
+    """
+    # Lấy vector xác suất đầu ra
+    probs = predictions[0]  # (num_classes,)
+    
+    # Lấy chỉ số lớp có xác suất cao nhất
+    predicted_index = int(np.argmax(probs))
+    predicted_label = class_names[predicted_index]
+    predicted_prob = probs[predicted_index]
+
+    print(f"Nhạc cụ được dự đoán: **{predicted_label}** (xác suất: {predicted_prob:.2%})\n")
+    print("Xác suất từng lớp:")
+
+    # Sắp xếp theo xác suất giảm dần
+    sorted_indices = np.argsort(probs)[::-1]
+
+    for i in sorted_indices[:top_k]:
+        label = class_names[i]
+        prob = probs[i]
+        print(f"  - {label:<10}: {prob:.2%}")
+
+
+
+def plot_prediction_probabilities(predictions, class_names):
+    """
+    Vẽ biểu đồ xác suất dự đoán cho từng lớp.
+
+    Parameters:
+        predictions (np.ndarray): Kết quả từ model.predict(), shape (1, num_classes)
+        class_names (list): Danh sách tên các lớp, ví dụ: ['danbau', 'dannhi', 'dantranh', 'sao']
+    """
+    probs = predictions[0]
+
+    # Sắp xếp theo xác suất giảm dần
+    sorted_indices = np.argsort(probs)[::-1]
+    sorted_labels = [class_names[i] for i in sorted_indices]
+    sorted_probs = probs[sorted_indices]
+
+    # Vẽ biểu đồ
+    plt.figure(figsize=(8, 4))
+    bars = plt.barh(sorted_labels, sorted_probs, color='skyblue')
+    plt.xlabel('Xác suất')
+    plt.title('Biểu đồ xác suất dự đoán nhạc cụ')
+    plt.xlim(0, 1)
+
+    # Hiển thị giá trị phần trăm trên từng cột
+    for bar, prob in zip(bars, sorted_probs):
+        plt.text(prob + 0.01, bar.get_y() + bar.get_height()/2,
+                 f"{prob:.2%}", va='center')
+
+    plt.gca().invert_yaxis()  # Lớp có xác suất cao nhất ở trên
+    plt.tight_layout()
+    plt.show()
+
 
 def predict(file_path):
     model = tf.keras.models.load_model(r"bestmodel\model1.h5")
@@ -60,54 +120,6 @@ def predict(file_path):
     labels = ["Đàn bầu", "Đàn nhị", "Đàn tranh", "Sáo"]
 
     return labels[predicted_index]
-
-
-
-# def audio_to_mel_spectrogram(audio_segment, n_mels=128, hop_length=512, n_fft=2048, fixed_length=128, sr=22050, duration=None, input_shape=(128, 128, 3)):
-#     """Chuyển file âm thanh thành Mel-spectrogram với kích thước cố định.
-
-#     Parameters:
-#         file_path (str): Đường dẫn đến file âm thanh (WAV, MP3, v.v.).
-#         n_mels (int): Số lượng Mel bands.
-#         hop_length (int): Khoảng cách giữa các khung.
-#         n_fft (int): Kích thước FFT.
-#         fixed_length (int): Kích thước cố định của trục thời gian (ví dụ 128, để tạo ma trận 128×128).
-#         sr (int): Tần số lấy mẫu khi số hoá tín hiệu analog (sampling rate).
-
-#     Returns:
-#         mel_spec_db (ndarray): Mel-spectrogram dạng log (decibel) với kích thước `n_mels`×`fixed_length`.
-#     """
-#     samples = np.array(audio_segment.get_array_of_samples()).astype(np.float32)
-#     samples = samples / np.iinfo(audio_segment.array_type).max  # Chuẩn hoá thành [-1, 1]
-
-#         # Convert to mono nếu stereo
-#     if audio_segment.channels == 2:
-#         samples = samples.reshape((-1, 2))
-#         samples = samples.mean(axis=1)
-
-#     # Chuyển sang mel-spectrogram, log decibel
-#     mel_spec = librosa.feature.melspectrogram(y=samples, sr=sr, n_mels=n_mels, hop_length=hop_length, n_fft=n_fft)    
-#     mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-
-#     # Cắt hoặc đệm thêm cho mel-spectrogram để có kích thước cố định
-#     if mel_spec_db.shape[1] > fixed_length:
-#         mel_spec_db = mel_spec_db[:, :fixed_length]
-#     else:
-#         mel_spec_db = np.pad(mel_spec_db, ((0, 0), (0, fixed_length - mel_spec_db.shape[1])), mode='constant')
-    
-#     # Thêm chiều cho Mel-spectrogram để phù hợp với đầu vào của CNN
-#     mel_spec_db = mel_spec_db[..., np.newaxis]
-    
-#     # Chuyển đổi kích thước Mel-spectrogram về kích thước đầu vào của mô hình
-#     mel_spec_db = tf.image.resize(mel_spec_db, input_shape[:2], method='bilinear').numpy()
-    
-#     # Chuyển đổi về kích thước 3 kênh
-#     if input_shape[-1] == 3:
-#         mel_spec_db = np.repeat(mel_spec_db, 3, axis=-1)
-    
-#     # Chuẩn hóa giá trị về khoảng [0, 1]
-#     mel_spec_db = (mel_spec_db - mel_spec_db.min()) / (mel_spec_db.max() - mel_spec_db.min() + 1e-10)
-#     return mel_spec_db
 
 
 
@@ -138,7 +150,6 @@ def predict_main_instrument(model, file_path, segment_length_ms=5000):
             n_mels=N_MELS, 
             hop_length=HOP_LENGTH, 
             n_fft=N_FFT, 
-            fixed_length=128, 
             sr=SR, 
             duration=None, 
             input_shape=INPUT_SHAPE)
