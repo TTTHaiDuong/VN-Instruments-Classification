@@ -34,6 +34,7 @@ def audio_to_mel_spectrogram(
     # Tải âm thanh
     if isinstance(audio_input, str):
         y, sr = librosa.load(audio_input, sr=sr)
+
     elif isinstance(audio_input, AudioSegment):
         audio_input = audio_input.set_frame_rate(sr)
         y = np.array(audio_input.get_array_of_samples(), dtype=np.float32)
@@ -41,6 +42,15 @@ def audio_to_mel_spectrogram(
             y = y.reshape((-1, audio_input.channels)).mean(axis=1)
         y = y / np.max(np.abs(y) + 1e-10)
         sr = audio_input.frame_rate
+
+    elif isinstance(audio_input, np.ndarray):
+        y = audio_input
+        # Đảm bảo y là mảng 1D (mono)
+        if y.ndim > 1:
+            y = np.mean(y, axis=1)
+        # Chuẩn hóa nếu cần
+        y = y / np.max(np.abs(y) + 1e-10)
+        
     else:
         raise ValueError("audio_input phải là đường dẫn file (str) hoặc AudioSegment")
 
@@ -97,7 +107,7 @@ def display_mel_spectrogram(mel_spec_db, sr=22050, hop_length=512):
     elif len(mel_spec_db.shape) != 2:
         raise ValueError(f"Mong đợi mảng 2D hoặc 3D với 1/3 kênh, nhận được kích thước {mel_spec_db.shape}")
     
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(5, 5))
     librosa.display.specshow(mel_spec_db, sr=sr, hop_length=hop_length, x_axis='time', y_axis='mel')
     plt.colorbar(format='%+2.0f dB')
     plt.title('Mel-spectrogram')
@@ -191,26 +201,42 @@ def save_mel_spectrograms(
 def main():
     parser = argparse.ArgumentParser(description="Chuyển đổi âm thanh thành Mel-spectrogram và lưu dưới dạng hình ảnh.")
 
-    parser.add_argument('--input_dir', type=str, required=True, help='Thư mục chứa các file âm thanh gốc.')
-    parser.add_argument('--output_dir', type=str, required=True, help='Thư mục lưu các file Mel-spectrogram đã chuyển đổi.')
+    parser.add_argument("-s", '--save', action="store_true", help='Lưu file, hoặc các file .')
+    parser.add_argument("-ip", '--input_dir', type=str, help='Thư mục chứa các file âm thanh hoặc file âm thanh gốc.')
+    parser.add_argument("-op", '--output_dir', type=str, help='Thư mục lưu các file Mel-spectrogram đã chuyển đổi.')
+    parser.add_argument("-d", "--display", action="store_true", help='Hiển thị Mel-spectrogram từ file âm thanh.')
 
     args = parser.parse_args()
-    save_mel_spectrograms(args.input_dir, args.output_dir)
+    
+    if args.save:
+        if not args.input_dir or not args.output_dir:
+            print("Vui lòng cung cấp đường dẫn thư mục đầu vào và đầu ra.")
+            return
+        save_mel_spectrograms(args.input_dir, args.output_dir)
+
+    elif args.display:
+        if not args.input_dir:
+            print("Vui lòng cung cấp đường dẫn file âm thanh.")
+            return
+        mel_spec = audio_to_mel_spectrogram(args.input_dir)
+        display_mel_spectrogram(mel_spec)
+    
+    else:
+        print("Vui lòng chọn một trong các tùy chọn: -s (lưu) hoặc -d (hiển thị).")
+        return
 
 
 
 if __name__ == "__main__":
-    # Hiển thị mel-spectrogram từ file âm thanh
-    # audio_file = #file âm thanh
     # mel_spectrogram = audio_to_mel_spectrogram(r"rawdata\train\sao\sao001.wav", duration=5)
     # plt.imsave(r"C:\Users\tranh\Downloads\sao.png", mel_spectrogram[:, :, 0], cmap='magma')
 
     # print(f"Mel-spectrogram shape: {mel_spectrogram.shape}")
-    # display_mel_spectrogram(mel_spectrogram)
+    display_mel_spectrogram(audio_to_mel_spectrogram(r"rawdata\train\sao\sao001.wav", duration=5))
     # print(mel_spectrogram)
 
-    # Lưu các mel-spectrogram từ trong thư mục âm thanh
-    save_mel_spectrograms(
-        r"rawdata\val\danbau",
-        r"dataset\val\danbau"
-    )
+    # save_mel_spectrograms(
+    #     r"rawdata\val\danbau",
+    #     r"dataset\val\danbau"
+    # )
+    main()

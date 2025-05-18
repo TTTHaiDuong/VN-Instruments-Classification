@@ -5,6 +5,7 @@ import shutil
 import hashlib
 import librosa
 from collections import defaultdict
+from PIL import Image
 
 
 
@@ -280,35 +281,59 @@ def get_audio_hash(file_path, sr=22050):
 
 
 
-def find_duplicate_audio_files(input_dir, sr=22050, extensions=('.wav', '.mp3')):
+def get_image_hash(file_path):
+    try:
+        with Image.open(file_path) as img:
+            img = img.convert('L').resize((64, 64))  # chuyển grayscale và resize
+            data = img.tobytes()
+            return hashlib.md5(data).hexdigest()
+    except Exception as e:
+        print(f"[Image] Error processing {file_path}: {e}")
+        return None
+    
+
+
+def find_duplicate_media_files(input_dir, audio_sr=22050, audio_exts=('.wav', '.mp3'), image_exts=('.png', '.jpg', '.jpeg')):
     """
-    Tìm các file âm thanh trùng nhau trong thư mục.
+    Tìm các file âm thanh, hình ảnh trùng nhau trong thư mục.
     
     Parameters:
         input_dir (str): Đường dẫn đến thư mục chứa file âm thanh.
-        sr (int): Tần số lấy mẫu.
-        extensions (tuple): Danh sách phần mở rộng file hỗ trợ.
-    
+        audio_sr (int): Tần số lấy mẫu âm thanh.
+        audio_exts (tuple): Phần mở rộng âm thanh hỗ trợ.
+        image_exts (tuple): Phần mở rộng hình ảnh hỗ trợ.
+
     Returns:
         dict: Dictionary chứa các nhóm file trùng nhau.
     """
     # Dictionary để lưu hash và danh sách file tương ứng
-    hash_to_files = defaultdict(list)
+    hash_to_files_audio = defaultdict(list)
+    hash_to_files_image = defaultdict(list)
     
     # Duyệt qua tất cả file trong thư mục
     for root, _, files in os.walk(input_dir):
         for f in files:
-            if f.lower().endswith(extensions):
-                file_path = os.path.join(root, f)
-                file_hash = get_audio_hash(file_path, sr=sr)
-                
-                if file_hash:
-                    hash_to_files[file_hash].append(file_path)
+            file_path = os.path.join(root, f)
+            ext = f.lower()
+
+            if ext.endswith(audio_exts):
+                h = get_audio_hash(file_path, sr=audio_sr)
+                if h:
+                    hash_to_files_audio[h].append(file_path)
+
+            elif ext.endswith(image_exts):
+                h = get_image_hash(file_path)
+                if h:
+                    hash_to_files_image[h].append(file_path)
     
     # Lọc các hash có nhiều hơn 1 file (tức là trùng nhau)
-    duplicates = {h: files for h, files in hash_to_files.items() if len(files) > 1}
+    duplicates_audio = {h: files for h, files in hash_to_files_audio.items() if len(files) > 1}
+    duplicates_image = {h: files for h, files in hash_to_files_image.items() if len(files) > 1}
     
-    return duplicates
+    return {
+        "audio": duplicates_audio, 
+        "image": duplicates_image
+    }
 
 
 
@@ -316,10 +341,10 @@ def remove_duplicates(input_dir):
     """
     Xóa các file âm thanh trùng nhau trong thư mục.
     """
-    duplicates = find_duplicate_audio_files(
+    duplicates = find_duplicate_media_files(
             input_dir=input_dir,
-            sr=22050,
-            extensions=('.wav', '.mp3')
+            audio_sr=22050,
+            audio_exts=('.wav', '.mp3')
         )
     
     for file_paths in duplicates.values():
@@ -333,15 +358,32 @@ def print_duplicates(duplicates):
     """
     In danh sách các file trùng nhau.
     """
-    if not duplicates:
+    audio_duplicates = duplicates.get("audio", {})
+    image_duplicates = duplicates.get("image", {})
+
+    if not audio_duplicates and not image_duplicates:
         print("Không tìm thấy file trùng.")
         return
-    
-    print("Các file âm thanh trùng nhau:")
-    for hash_value, files in duplicates.items():
-        print(f"\nHash: {hash_value}")
-        for f in files:
-            print(f"  - {f}")
+
+    if audio_duplicates:
+        print("Các file âm thanh trùng nhau:")
+        for hash_value, files in audio_duplicates.items():
+            print(f"\nHash: {hash_value}")
+            for f in files:
+                print(f"  - {f}")
+    else:
+        print("Không có file âm thanh trùng nhau.")
+
+    print("\n" + "="*50 + "\n")
+
+    if image_duplicates:
+        print("Các file hình ảnh trùng nhau:")
+        for hash_value, files in image_duplicates.items():
+            print(f"\nHash: {hash_value}")
+            for f in files:
+                print(f"  - {f}")
+    else:
+        print("Không có file hình ảnh trùng nhau.")
 
 
 
@@ -355,6 +397,8 @@ def main():
     
     parser.add_argument("-m", "--move", action="store_true", help="Di chuyển các file đã cắt sang thư mục khác.")
     parser.add_argument("-cf", "--countfile", action="store_true", help="Đếm số lượng file trong thư mục.")
+
+    parser.add_argument("-dup", "--duplicates", type=str, help="Tìm các file trùng lập trong thư mục.")
     args = parser.parse_args()
 
     if args.cover: 
@@ -391,23 +435,25 @@ def main():
         dir_name = os.path.basename(dir_path)
         print(f"Số lượng file trong thư mục {dir_name}: {count_files(dir_path)}")
 
+    elif args.duplicates:
+        if not os.path.isdir(args.duplicates):
+            raise ValueError(f"Đường dẫn {args.duplicates} không phải là thư mục.")
+        print_duplicates(
+            find_duplicate_media_files(
+                input_dir=args.duplicates,
+                audio_sr=22050,
+            )
+        )
+
     else:
         print("Vui lòng chọn một trong các tùy chọn: -cover, -split, --rename, -move, -countfile.")
 
 
 
 if __name__ == "__main__":
-    print_duplicates(
-        find_duplicate_audio_files(
-            input_dir=r"rawdata\train\sao",
-            sr=22050,
-            extensions=('.wav', '.mp3')
-        )
-    )
-
     # remove_duplicates(
     #     input_dir=r"rawdata\train\dantranh"
     # )
-    # main()
+    main()
 
     

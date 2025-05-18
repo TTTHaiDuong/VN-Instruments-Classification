@@ -2,37 +2,67 @@ import os
 import numpy as np
 import librosa
 import tensorflow as tf
-from tensorflow.keras import layers, models
-from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.utils import to_categorical
-from PIL import Image
-from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift
 import matplotlib.pyplot as plt
 from mel_spec import audio_to_mel_spectrogram
-from build.model1 import get_model1
 from config import *
 from mel_spec import *
 from collections import Counter
-from pydub import AudioSegment
+import argparse
+import re
+from PIL import Image
+from tensorflow.keras.preprocessing.image import img_to_array
 
 
+def predict_predominant_instrument(model, file_path, segment_length=5, sr=22050, log=True):
+    """Dự đoán nhạc cụ chính trong file âm thanh"""
+    ext = os.path.splitext(file_path)[1].lower()
+    predictions = []
+    segment_info = []
 
-# Hàm dự đoán và so sánh nhạc cụ
-def predict_instrument(model, input_file):
-    mel_spec = audio_to_mel_spectrogram(
-        input_file, 
-        n_mels=N_MELS, 
-        hop_length=HOP_LENGTH, 
-        n_fft=N_FFT, 
-        sr=SR, 
-        duration=None, 
-        input_shape=INPUT_SHAPE)
-    
-    print(mel_spec.shape)
-    mel_spec = np.expand_dims(mel_spec, axis=0)
-    return model.predict(mel_spec)
+    if ext in ['.wav', '.mp3']:
+        y, sr = librosa.load(file_path, sr=sr)
+        total_length = len(y) / sr
+        num_segments = int(np.ceil(total_length / segment_length))
+
+        for i in range(num_segments):
+            start_sample = int(i * segment_length * sr)
+            end_sample = int(min((i + 1) * segment_length * sr, len(y)))
+            segment_y = y[start_sample:end_sample]
+            mel_spec = audio_to_mel_spectrogram(segment_y)
+            pred = model.predict(np.expand_dims(mel_spec, axis=0))
+            predicted_class = np.argmax(pred, axis=1)[0]
+            predictions.append(predicted_class)
+
+            segment_info.append({
+                "start_time": i * segment_length,
+                "probabilities": pred.tolist()
+            })
+
+            if log:
+                print(f"[AUDIO] {os.path.basename(file_path)} Đoạn {i+1}/{num_segments}: Thời điểm: {i*segment_length:.2f}s, Tỉ lệ: {np.round(pred, 3)}")
+
+    elif ext in ['.png', '.jpg', '.jpeg']:
+        img = Image.open(file_path).convert('RGB')
+        img = img.resize((INPUT_SHAPE[0], INPUT_SHAPE[1]))  # hoặc theo kích thước input của model bạn
+        img_array = img_to_array(img) / 255.0  # chuẩn hóa
+        img_array = np.expand_dims(img_array, axis=0)
+
+        pred = model.predict(img_array)
+        predicted_class = np.argmax(pred, axis=1)[0]
+
+        predictions.append(predicted_class)
+        segment_info.append({
+            "source": file_path,
+            "probabilities": pred.tolist()
+        })
+
+        if log:
+            print(f"[IMAGE] {os.path.basename(file_path)}: {np.round(pred, 3)}")
+
+    class_counts = Counter(predictions)
+    total_segments = len(predictions)
+    class_ratios = [class_counts.get(i, 0) / total_segments * 100 for i in range(len(CLASS_NAMES))]
+    return class_ratios, segment_info
 
 
 
@@ -46,6 +76,7 @@ def plot_probabilities(probabilities):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+
 
 
 def print_prediction_results(predictions, class_names, top_k=4):
@@ -110,63 +141,16 @@ def plot_prediction_probabilities(predictions, class_names):
     plt.show()
 
 
-def predict(file_path):
-    model = tf.keras.models.load_model(r"bestmodel\model1.h5")
-    predictions = predict_instrument(model, file_path, ["dantranh", "danbau", "dannhi", "sao"], is_audio=True)
 
-    predicted_index = np.argmax(predictions)  # Lấy chỉ mục của xác suất cao nhất
-
-    # Danh sách nhãn của bạn
-    labels = ["Đàn bầu", "Đàn nhị", "Đàn tranh", "Sáo"]
-
-    return labels[predicted_index]
+def is_weight_only_file(file_path):
+    return re.match(r'.+\.weights\.h5$', file_path) is not None
 
 
 
-def predict_main_instrument(model, file_path, segment_length_ms=5000):
-    """
-    Dự đoán nhạc cụ chính trong một file âm thanh.
-
-    Parameters:
-        file_path (str): Đường dẫn file âm thanh.
-        model: Mô hình phân loại nhạc cụ (CNN).
-        predict_function: Hàm xử lý dự đoán, nhận input là đoạn audio, trả về tên nhạc cụ.
-        segment_length_ms (int): Độ dài mỗi đoạn cắt (ms).
-
-    Returns:
-        Tuple(str, dict): Tên nhạc cụ phổ biến nhất và phân phối dự đoán.
-    """
-    audio = AudioSegment.from_file(file_path)
-    duration = len(audio)
-    predictions = []
-
-    for start in range(0, duration, segment_length_ms):
-        end = min(start + segment_length_ms, duration)
-        segment = audio[start:end]
-
-        # Chuyển đoạn audio sang định dạng đầu vào cho model
-        mel_spec = audio_to_mel_spectrogram(
-            segment, 
-            n_mels=N_MELS, 
-            hop_length=HOP_LENGTH, 
-            n_fft=N_FFT, 
-            sr=SR, 
-            duration=None, 
-            input_shape=INPUT_SHAPE)
-    
-        mel_spec = np.expand_dims(mel_spec, axis=0)
-        
-        predicted_index = int(np.argmax(model.predict(mel_spec)[0]))
-        predicted_label = ["danbau", "dannhi", "dantranh", "sao"][predicted_index]
-
-        predictions.append(predicted_label)
-
-    # Đếm tần suất từng nhạc cụ
-    counter = Counter(predictions)
-    most_common = counter.most_common(1)[0][0] if counter else None
-
-    return most_common, dict(counter)
-
+def main():
+    parser = argparse.ArgumentParser("Sử dụng mô hình đã huấn luyện để dự đoán.")
+    parser.add_argument("-p", "--path", type=str, help="Đường dẫn đến file âm thanh cần dự đoán.")
+    parser.add_argument("-m", "--model", type=int, help="Chỉ số mô hình muốn sử dụng: 1, 2, 3.")
 
 
 if __name__ == "__main__":
@@ -180,15 +164,8 @@ if __name__ == "__main__":
     
     # # Hiển thị biểu đồ xác suất
     # plot_probabilities(probabilities)
-    model = tf.keras.models.load_model(r"bestmodel\model1.h5")
+    model = tf.keras.models.load_model(r"bestmodel\model1.h5", custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU})
 
-    sample_file = r"C:\Users\tranh\Downloads\Về quê.mp3"
-    # predicted_instrument = predict_main_instrument(model, sample_file)
-
-    print(f"Dự đoán: {predict_instrument(model, sample_file)}")
-    # print_prediction_results(predicted_instrument, CLASS_NAMES, top_k=4)
-    # plot_prediction_probabilities(predicted_instrument, CLASS_NAMES) 
-    # print(f"Dự đoán nhạc cụ: {predicted_instrument}")
-    # print(f"Tỉ lệ: {probabilities}")
-    # for instrument, prob in probabilities.items():
-    #     print(f"{instrument}: {prob:.4f}")
+    sample_file = r"C:\Users\tranh\Downloads\Music\THÊ LƯƠNG - PHÚC CHINH - Sáo Trúc Đào Duy cover phiên bản sáo dizi.mp3"
+    most, _ = predict_predominant_instrument(model, sample_file, segment_length=5, sr=22050)
+    print(f"Nhạc cụ chính: {CLASS_NAMES[np.argmax(most)]}")
