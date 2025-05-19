@@ -9,3 +9,12 @@ Lưu 1 file hoặc thư mục âm thanh thành mel-spectrogram (png)
 Quản lý file, dataset
 Tìm các file trùng lập trong thư mục, hỗ trợ audio (wav, mp3), image (png, jpeg, jpg)
 `python file_utils.py -dup "đường\dẫn\thư\mục"`
+
+Dependencies
+numpy
+librosa
+tensorflow
+matplotlib
+pydub
+sklearn
+seaborn

@@ -166,6 +166,6 @@ if __name__ == "__main__":
     # plot_probabilities(probabilities)
     model = tf.keras.models.load_model(r"bestmodel\model1.h5", custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU})
 
-    sample_file = r"C:\Users\tranh\Downloads\Music\THÊ LƯƠNG - PHÚC CHINH - Sáo Trúc Đào Duy cover phiên bản sáo dizi.mp3"
+    sample_file = r"test_audio\Hồng Nhan Xưa cover (đàn nhị)_ Lan Nha Bảng OST.mp3"
     most, _ = predict_predominant_instrument(model, sample_file, segment_length=5, sr=22050)
     print(f"Nhạc cụ chính: {CLASS_NAMES[np.argmax(most)]}")
