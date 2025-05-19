@@ -427,12 +427,14 @@ def main():
 
     args = parser.parse_args()
 
+    # Đổi tên hàng loạt các file trong thư mục
     if args.rename:
         if not os.path.isdir(args.input):
             print(f'Đường dẫn {args.input} không phải là thư mục hợp lệ.')
             return
         rename_files(args.input, args.rename[0], int(args.rename[1]), args.padding)
 
+    # Cắt một file hoặc các file âm thanh trong thư mục thành các đoạn
     elif args.split:
         if not os.path.isdir(args.input) and os.path.isdir(args.input) or not os.path.isdir(args.output):
             print(f'Đường dẫn đầu vào {args.input} hoặc đường dẫn đầu ra {args.output} không hợp lệ.')
@@ -440,16 +442,18 @@ def main():
         split_audio_directory(
             input_dir=args.input,
             output_dir=args.output,
-            segment_length=args.split,  # Độ dài mỗi đoạn cắt (5 giây)
+            segment_length=args.split,
             padding=args.padding
         )
 
+    # Di chuyển các file trong thư mục sang vị trí khác
     elif args.move:
         if not os.path.isdir(args.input) or not os.path.isdir(args.output):
             print(f'Đường dẫn đầu vào {args.input} hoặc đường dẫn đầu ra {args.output} không hợp lệ.')
             return
         move_files(args.input, args.output)
 
+    # Đếm số lượng các file trong thư mục
     elif args.count:
         if not os.path.isdir(args.input):
             print(f'Đường dẫn {args.input} không phải là thư mục hợp lệ.')
@@ -457,12 +461,14 @@ def main():
         dir_name = os.path.basename(args.input)
         print(f'Số lượng file trong thư mục {dir_name}: {count_files(args.input)}')
 
+    # Chuyển định dạng file hoặc các file mp3 trong thư mục sang wav
     elif args.cover:
         if not os.path.isdir(args.input) and not os.path.isfile(args.input):
             print(f'Đường dẫn {args.input} không hợp lệ.')
             return
         convert_all_mp3_to_wav(args.input, args.output)
 
+    # Cắt file âm thanh tại các điểm được cung cấp
     elif args.points:
         if not os.path.isfile(args.input) or not os.path.isdir(args.output):
             print(f'Đường dẫn file nguồn {args.input} hoặc thư mục đích {args.output} không hợp lệ.')
@@ -479,6 +485,7 @@ def main():
             cut_points=cut_points
         )
 
+    # In ra các file trùng lập trong một thư mục
     elif args.duplicate:
         if not os.path.isdir(args.duplicate):
             print(f'Đường dẫn {args.duplicate} không phải là thư mục hợp lệ.')
@@ -487,6 +494,7 @@ def main():
             find_duplicate_media_files(input_dir=args.duplicate)
         )
     
+    # Xoá các file trùng lập chỉ giữ lại bản chính trong thư mục
     elif args.remove:
         if not os.path.isdir(args.remove):
             print(f'Đường dẫn {args.remove} không phải là thư mục hợp lệ.')
@@ -499,6 +507,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
-
-    
+    main()    

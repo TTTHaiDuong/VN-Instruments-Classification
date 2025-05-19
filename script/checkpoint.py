@@ -1,13 +1,16 @@
-from tensorflow.keras.callbacks import Callback
 import numpy as np
 import os
 import re
 import sys
+from tensorflow.keras.callbacks import Callback
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import *
 
 
 
+# Checkpoint có sẵn của Tensorflow chỉ cho phép lưu một checkpoint tại một thời điểm.
+# Checkpoint tuỳ chỉnh này giúp lưu hai phiên bản của một checkpoint ở hai nơi khác nhau.
+# Một phiên bản để ghi nhận lịch sử, còn lại để lưu mô hình tốt nhất nên sau này nó có thể bị thay thế.
 class DualCheckpoint(Callback):
     
     def __init__(self, filepath1, filepath2,

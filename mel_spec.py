@@ -12,14 +12,14 @@ from pydub import AudioSegment
 
 
 def audio_to_mel_spectrogram(
-        audio_input, 
-        duration=None,
-        start=0.0,
-        hop_length=512, 
-        n_fft=2048, 
-        n_mels=128, 
-        sr=22050, 
-        input_shape=(128, 128, 3)):
+    audio_input, 
+    duration=None,
+    start=0.0,
+    hop_length=512, 
+    n_fft=2048, 
+    n_mels=128, 
+    sr=22050, 
+    input_shape=(128, 128, 3)):
     '''
     Chuyển file âm thanh hoặc AudioSegment thành Mel-spectrogram với kích thước cố định.
     
@@ -154,7 +154,6 @@ def save_mel_spectrograms(
         sr (int): Tần số lấy mẫu khi số hoá tín hiệu analog (sampling rate).
         input_shape (tuple): Kích thước đầu vào của mô hình CNN (height, width, channels).
     '''
-
     os.makedirs(output_dir, exist_ok=True)
     
     # Lấy danh sách các lớp (subfolders), nếu không có thì coi input_dir là một lớp duy nhất
@@ -227,12 +226,14 @@ def main():
 
     args = parser.parse_args()
     
+    # Lưu file hoặc các file âm thanh trong thư mục thành Mel-spectrogram
     if args.save:
         if not args.input or not args.output:
             print('Vui lòng cung cấp đường dẫn file hoặc thư mục đầu vào và thư mục đầu ra.')
             return
         save_mel_spectrograms(args.input, args.output)
 
+    # Chuyển một file âm thanh thành Mel-spectrogram rồi hiển thị lên
     elif args.display:
         if not args.input:
             print('Vui lòng cung cấp đường dẫn file âm thanh.')

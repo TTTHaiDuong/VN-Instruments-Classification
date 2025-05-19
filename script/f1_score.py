@@ -2,6 +2,9 @@ import tensorflow as tf
 
 
 
+# Tạo thêm chỉ số đánh giá f1-score sử dụng cho metrics khi compile model.
+# Vì Tensorflow không có sẵn chỉ số này. Sử dụng cho các callback như Checkpoint, Early Stopping, ReduceLROnPlateau
+# để chọn ra mô hình có f1-score tối ưu nhất.
 class MacroF1Score(tf.keras.metrics.Metric):
     
     def __init__(self, num_classes, name='macro_f1_score', **kwargs):

@@ -153,6 +153,7 @@ def main():
     parser.add_argument("-m", "--model", type=int, help="Chỉ số mô hình muốn sử dụng: 1, 2, 3.")
 
 
+
 if __name__ == "__main__":
     # sample_file = "C:\\Users\\tranh\\Downloads\\BaChuaThac-ChauVan-ThanhNgoan-CHAUVAN.wav"
     # predicted_instrument, probabilities = predict_and_compare_instrument(sample_file, model, label_encoder)

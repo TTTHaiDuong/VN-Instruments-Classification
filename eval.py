@@ -1,12 +1,12 @@
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from main import predict_predominant_instrument
-import numpy as np
-import tensorflow as tf
-import os
 import argparse
-from config import *
-import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+import os
+import seaborn as sns
+import tensorflow as tf
+from config import *
+from main import predict_predominant_instrument
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 
 
@@ -79,18 +79,22 @@ def main():
 
     val_labels = [0]*file_count + [1]*file_count + [2]*file_count + [3]*file_count  # Nhãn thực tế tương ứng với các file âm thanh
 
+    # Chỉ số accuracy
     if args.accuracy:
         accuracy = evaluate_accuracy(model, val_file_paths, val_labels)
         print(f"Độ chính xác của mô hình trên tập validation: {accuracy:.2%}")
 
+    # Các chỉ số như precision, recall, f1
     elif args.metrics:
         evaluate_metrics(model, val_file_paths, val_labels)
 
+    # Ma trận nhầm lẫn
     elif args.confusion:
         plot_confusion_matrix(model, val_file_paths, val_labels)
 
     else:
         print("Hãy chọn các tuỳ chọn -a, -m, -c.")
+        parser.print_help()
 
 
 
