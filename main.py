@@ -62,6 +62,12 @@ def predict_predominant_instrument(model, file_path, segment_length=5, sr=22050,
     class_counts = Counter(predictions)
     total_segments = len(predictions)
     class_ratios = [class_counts.get(i, 0) / total_segments * 100 for i in range(len(CLASS_NAMES))]
+
+    if log:
+        print("\nTỉ lệ dự đoán tổng cho từng lớp:")
+        for class_name, ratio in zip(CLASS_NAMES, class_ratios):
+            print(f"{class_name}: {ratio:.2f}%")
+        print(f"Nhạc cụ chính: {CLASS_NAMES[np.argmax(class_ratios)]}")
     return class_ratios, segment_info
 
 
@@ -147,6 +153,15 @@ def is_weight_only_file(file_path):
 
 
 
+def predict(file_path):
+    model = tf.keras.models.load_model(r"bestmodel\model1_20250519.h5",
+                                       custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU}
+                                       )
+
+    most, _ = predict_predominant_instrument(model, file_path=file_path, segment_length=5, sr=22050)
+    return CLASS_NAMES[np.argmax(most)]
+
+
 def main():
     parser = argparse.ArgumentParser("Sử dụng mô hình đã huấn luyện để dự đoán.")
     parser.add_argument("-p", "--path", type=str, help="Đường dẫn đến file âm thanh cần dự đoán.")
@@ -165,8 +180,9 @@ if __name__ == "__main__":
     
     # # Hiển thị biểu đồ xác suất
     # plot_probabilities(probabilities)
-    model = tf.keras.models.load_model(r"bestmodel\model1.h5", custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU})
+    model = tf.keras.models.load_model(r"bestmodel\model1_20250519.h5",
+                                       custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU}
+                                       )
 
-    sample_file = r"test_audio\Hồng Nhan Xưa cover (đàn nhị)_ Lan Nha Bảng OST.mp3"
+    sample_file = r"test_audio\Gió Đánh Đò Đưa ( Đàn Bầu + Đàn Tranh Phương Nhung ).mp3"
     most, _ = predict_predominant_instrument(model, sample_file, segment_length=5, sr=22050)
-    print(f"Nhạc cụ chính: {CLASS_NAMES[np.argmax(most)]}")

@@ -2,6 +2,7 @@ import numpy as np
 import os
 import re
 import sys
+from datetime import datetime
 from tensorflow.keras.callbacks import Callback
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import *
@@ -17,8 +18,11 @@ class DualCheckpoint(Callback):
                  monitor='val_accuracy', mode='max',
                  save_best_only=True, save_weights_only=False, verbose=1):
         super().__init__()
-        self.filepath1 = filepath1
-        self.filepath2 = filepath2
+        self.timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Tên file lưu trong thư mục checkpoint, có lưu dấu thời gian
+        self.filepath1 = self._add_timestamp_to_filepath(filepath1)
+        # Tên file lưu trong thư mục bestmodel, khi lưu ghi đè luôn file cũ
+        self.filepath2 = filepath2     
         self.monitor = monitor
         self.save_best_only = save_best_only
         self.save_weights_only = save_weights_only  # Chỉ áp dụng cho filepath1
@@ -40,6 +44,17 @@ class DualCheckpoint(Callback):
 
 
 
+    def _add_timestamp_to_filepath(self, filepath):
+        """Thêm timestamp vào tên file trước phần mở rộng."""
+        pattern = r"(.+?)(\.weights\.h5|\.h5)$"
+        match = re.match(pattern, filepath)
+        if not match:
+            raise ValueError(f"Filepath must end with .weights.h5 or .h5: {filepath}")
+    
+        base, ext = match.groups()
+        return f"{base}_{self.timestamp}{ext}"
+
+    
     def _update_best_from_existing_checkpoints(self):
         """Kiểm tra thư mục checkpoints để tìm giá trị tốt nhất của monitor."""
         checkpoint_dir = os.path.dirname(self.filepath1)

@@ -9,7 +9,6 @@ import random
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from main import predict
 
-
 # ----------------- Thiết lập cấu hình -----------------
 IMAGE_DIR = "project/images"
 BACKGROUND_IMG = os.path.join(IMAGE_DIR, "main.jpg")

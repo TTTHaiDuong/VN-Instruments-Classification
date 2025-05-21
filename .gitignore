@@ -1,4 +1,9 @@
 rawdata/
+aug_dataset/
+checkpoint/
+dataset/
+test_audio/
+train_history/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

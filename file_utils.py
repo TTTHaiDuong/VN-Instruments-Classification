@@ -442,7 +442,7 @@ def main():
         split_audio_directory(
             input_dir=args.input,
             output_dir=args.output,
-            segment_length=args.split,
+            segment_length=args.split * 1000,
             padding=args.padding
         )
 
