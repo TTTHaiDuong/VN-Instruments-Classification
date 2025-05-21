@@ -17,7 +17,7 @@ def set_background(png_file):
     <style>
     .stApp {{
         background-image: url("data:image/png;base64,{bin_str}");
-        background-size: cover;
+        background-size: contain;
         background-attachment: fixed;
     }}
     </style>
@@ -59,10 +59,11 @@ title_style = """
 result_style = """
 <style>
 .result {
-    color: darkgreen;
+    color: white;
     text-align: center;
-    font-size: 36px;
+    font-size: 78px;
     font-family: 'Brush Script MT', cursive;
+    
 }
 </style>
 """

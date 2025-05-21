@@ -8,7 +8,7 @@ import random
 
 # ----------------- Thiết lập cấu hình -----------------
 IMAGE_DIR = "project/images"
-BACKGROUND_IMG = os.path.join(IMAGE_DIR, "main.jpg")
+BACKGROUND_IMG = os.path.join(IMAGE_DIR, "main.jpg") 
 EXCEL_LOG = "project/user_input.xlsx"
 UPLOAD_DIR = "project/uploaded"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -122,8 +122,25 @@ if uploaded_file:
     with open(save_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     st.success("📁 File đã được tải lên!")
-
-    if st.button("🎯 Phân loại"):
+    st.markdown("""
+    <style>
+        .big-button {
+            display: inline-block;
+            background-color: #ff4b4b;
+            color: white;
+            padding: 16px 32px;
+            font-size: 50px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .big-button:hover {
+            background-color: #ff1f1f;
+        }
+    </style>
+""", unsafe_allow_html=True)
+    if st.markdown('<button class="big-button">🎯 Phân loại</button>', unsafe_allow_html=True):
         result = classify_instrument(save_path)
         st.markdown(result_style, unsafe_allow_html=True)
         st.markdown(f"<div class='result'>🎼 Kết quả: {result}</div>", unsafe_allow_html=True)
