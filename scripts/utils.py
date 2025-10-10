@@ -1,0 +1,156 @@
+import random, os
+from rich.console import Console
+from rich.table import Table
+from collections import defaultdict
+
+
+def to_mm_ss(seconds: int) -> str:
+    m, s = divmod(int(seconds), 60)
+    return f"{m:02d}:{s:02d}"
+
+
+def unique_filename(base_path: str, padding=0):
+    """
+    Returns a unique file path if the specified file already exists by appending a numeric suffix.
+    For example: "file001.txt", "file002.txt".
+
+    Parameters:
+        base_path (str): The base file path.
+        padding (int): Number of digits to pad the index with (default is 0).
+
+    Returns:
+        str: A unique file path that does not conflict with existing files.
+    """
+    if not os.path.exists(base_path):
+        return base_path
+    
+    base, ext = os.path.splitext(base_path)
+    counter = 1
+    while True:
+        index_str = str(counter).rjust(padding, "0")
+
+        new_path = f"{base}_{index_str}{ext}"
+        if not os.path.exists(new_path):
+            return new_path
+        counter += 1
+
+
+def collect_files(
+    input_path: str, 
+    class_name: str | None = None
+) -> tuple[list[str], list[str | None]]:
+    """Trả về danh sách các đường dẫn mẫu âm thanh và nhãn (file_path, class_name).
+
+    Args:
+        input_path (str): Đường dẫn file, hoặc thư mục, có thể là:
+        - Đường dẫn file âm thanh cụ thể
+        - Đường dẫn thư mục chứa các loại âm thanh cùng nhãn
+        - Đường dẫn thư mục chứa các loại âm thanh được phân loại ra từng thư mục riêng (danbau, dannhi,...)
+    """
+    if os.path.isfile(input_path):
+        return [input_path], [class_name]
+
+    paths, labels = [], []
+    classes = [d for d in os.listdir(input_path) if os.path.isdir(os.path.join(input_path, d))] or [""]
+    for cls in classes:
+        class_dir = os.path.join(input_path, cls) if cls else input_path
+        for f in os.listdir(class_dir):
+            if f.endswith((".wav", ".mp3")) or True:
+                file_path = os.path.join(class_dir, f)
+                paths.append(file_path)
+                labels.append(cls if cls else class_name)
+    return paths, labels
+
+
+def limit_files_per_class(
+    file_paths: list[str], 
+    labels: list[str], 
+    max_per_class: int, 
+    shuffle = False, 
+    seed: int | None = None,
+    verbose = False
+):
+    """
+    Giới hạn số file tối đa cho mỗi lớp.
+
+    Parameters
+    ----------
+    file_paths : list of str
+        Danh sách đường dẫn file.
+    labels : list of str
+        Danh sách nhãn (cùng chiều với file_paths).
+    max_per_class : int
+        Số lượng tối đa file giữ lại cho mỗi lớp.
+    shuffle : bool
+        Nếu True thì random chọn file, nếu False thì lấy theo thứ tự ban đầu.
+    seed : int or None
+        Seed cho random (đảm bảo reproducibility).
+
+    Returns
+    -------
+    filtered_paths : list of str
+        Danh sách file đã được lọc.
+    filtered_labels : list of str
+        Danh sách label tương ứng với file đã được lọc.
+    """
+    # Gom file theo nhãn
+    files_by_label = defaultdict(list)
+    for path, label in zip(file_paths, labels):
+        files_by_label[label].append(path)
+
+    filtered_paths, filtered_labels = [], []
+
+    logs = []
+    # Lọc file cho từng nhãn
+    for label, paths in files_by_label.items():
+        if shuffle:
+            random.seed(seed)
+            sampled_paths = random.sample(paths, min(max_per_class, len(paths)))
+        else:
+            sampled_paths = paths[:max_per_class]
+
+        samples_len = len(sampled_paths)
+        filtered_paths.extend(sampled_paths)
+        filtered_labels.extend([label] * samples_len)
+
+        if verbose:
+            logs.append({
+                "Label": label, 
+                "Colon": ":", 
+                "Count": samples_len
+            })
+
+    if verbose:
+        print_table(logs, "Samples Found", show_header=False, box=False, column_styles={ "Label": {"justify": "left" }})
+
+    return filtered_paths, filtered_labels
+
+
+def print_table(
+    rows: list[dict],
+    title: str,
+    column_styles: dict[str, dict] | None = None,
+    **overrides
+):
+    default_style = dict(
+        title=title,
+        padding=(0, 2), # (top/bottom, left/right) => mỗi cột có 2 space bên lề
+        show_lines=False,
+        show_edge=False
+    )
+
+    table = Table(**{**default_style, **overrides})
+
+    columns = list(rows[0].keys())
+
+    default_col_style = {"justify": "center", "no_wrap": False}
+
+    for col in columns:
+        col_style = {**default_col_style, **(column_styles.get(col, {}) if column_styles else {})}
+        table.add_column(str(col), **col_style)
+
+    for row in rows:
+        values = [str(row.get(col, "")) for col in columns]
+        table.add_row(*values)
+
+    Console().print(table)
