@@ -154,3 +154,10 @@ def print_table(
         table.add_row(*values)
 
     Console().print(table)
+
+
+def register(registry, name):
+    def decorator(func):
+        registry[name] = func
+        return func
+    return decorator

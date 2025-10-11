@@ -1,6 +1,7 @@
 import librosa, os
 import numpy as np
 from typing import TypedDict
+from scripts.utils import register
 
 
 class BackgroundNoiseParams(TypedDict):
@@ -19,20 +20,14 @@ class AUGMethods(TypedDict, total=False):
 
 AUGMENT_REGISTRY = {}
 
-def _register_augment(name):
-    def decorator(func):
-        AUGMENT_REGISTRY[name] = func
-        return func
-    return decorator
 
-
-@_register_augment("pitch_shift")
+@register(AUGMENT_REGISTRY, "pitch_shift")
 def _pitch_shift(y, sr, params):
     n_steps = np.random.uniform(*params)
     return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 
 
-@_register_augment("time_stretch")
+@register(AUGMENT_REGISTRY, "time_stretch")
 def _time_stretch(y, _, params):
     rate = np.random.uniform(*params)
     try:
@@ -41,14 +36,14 @@ def _time_stretch(y, _, params):
         return y
     
 
-@_register_augment("add_noise")
+@register(AUGMENT_REGISTRY, "add_noise")
 def _add_noise(y, _, params):
     mean, std = params
     noise = np.random.normal(mean, std, len(y))
     return y + noise
     
 
-@_register_augment("volume")
+@register(AUGMENT_REGISTRY, "volume")
 def _volume(y, _, params):
     min_db, max_db = params
     db_change = np.random.uniform(min_db, max_db)
@@ -56,7 +51,7 @@ def _volume(y, _, params):
     return y * factor
 
 
-@_register_augment("time_mask")
+@register(AUGMENT_REGISTRY, "time_mask")
 def _time_mask(y, sr, params):
     min_duration, max_duration = params
     duration = np.random.uniform(min_duration, max_duration)
@@ -69,7 +64,7 @@ def _time_mask(y, sr, params):
     return y_masked
 
 
-@_register_augment("background_noise")
+@register(AUGMENT_REGISTRY, "background_noise")
 def _background_noise(y, sr, params):
     noise_path = params["noise_path"]
     amplitude_range = params["amplitude"]

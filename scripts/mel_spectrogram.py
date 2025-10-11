@@ -3,24 +3,19 @@ import librosa
 import scripts.preprocess_audio as ppa
 from types import SimpleNamespace
 from config.general import MEL_CONFIG, TRAIN_CONFIG
+from scripts.utils import register
 
 
 NORMALIZE_REGISTRY = {}
 
-def _register_normalize(name):
-    def decorator(func):
-        NORMALIZE_REGISTRY[name] = func
-        return func
-    return decorator
 
-
-@_register_normalize("minmax_0_1")
+@register(NORMALIZE_REGISTRY, "minmax_0_1")
 def _minmax_0_1(S: np.ndarray, top_db: float) -> np.ndarray:
     # assume S in [-top_db, 0]
     return (S + top_db) / top_db
 
 
-@_register_normalize("zscore")
+@register(NORMALIZE_REGISTRY, "zscore")
 def _zscore(S: np.ndarray, _) -> np.ndarray:
     mu = S.mean()
     sigma = S.std() if S.std() > 0 else 1.0
