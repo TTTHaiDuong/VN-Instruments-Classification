@@ -16,7 +16,7 @@ def save(
 ):
     paths, labels = collect_files(input_path, label)
 
-    mels, labels,  = [], []
+    mels, class_idxs,  = [], []
     with Progress() as progress:
         task = progress.add_task(
             "[magenta]Extracting Mel-spectrograms...", total=len(paths)
@@ -28,11 +28,11 @@ def save(
 
             y, sr = librosa.load(path)
             mels.append(to_mel(y, sr))
-            labels.append(class_map.label_to_index(label))
+            class_idxs.append(class_map.label_to_index(label))
 
             progress.update(task, advance=1)
 
-    tfr.write_tfrecord(mels, labels, out_path, None, verbose)
+    tfr.write_tfrecord(mels, class_idxs, out_path, None, verbose)
 
 
 @click.command()
@@ -51,4 +51,10 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    save(
+    input_path="rawdata/train",
+    out_path="test/train.tfrecord",
+    class_map=INSTRUMENTS,
+    verbose=True
+)

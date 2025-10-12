@@ -35,7 +35,7 @@ def serialize_example(mel: np.ndarray, label: int, file_id: str = "") -> tf.trai
 
 def write_tfrecord(
     mels: list[np.ndarray], 
-    labels: list[int], 
+    class_idxs: list[int], 
     filename: str, 
     ids: list[str] | None = None,
     verbose: bool = False
@@ -43,13 +43,13 @@ def write_tfrecord(
     logs = []
 
     with tf.io.TFRecordWriter(filename) as writer:
-        for i, (ml, lbl) in enumerate(zip(mels, labels)):
+        for i, (ml, lbl) in enumerate(zip(mels, class_idxs)):
             file_id = ids[i] if ids is not None else ""
             example = serialize_example(ml.astype(np.float32), lbl, file_id)
             writer.write(example.SerializeToString())
 
             # Ghi log
-            if verbose and (i == 0 or ml.shape != mels[i-1].shape or lbl != labels[i-1]):
+            if verbose and (i == 0 or ml.shape != mels[i-1].shape or lbl != class_idxs[i-1]):
                 logs.append({
                     "Index": i,
                     "Sample ID": file_id if file_id else None,
@@ -58,11 +58,11 @@ def write_tfrecord(
                 })
 
     if verbose:
-        total = len(labels)
+        total = len(class_idxs)
         summary = [{"Label": "TOTAL", "Count": total}]
 
         # đếm theo label
-        unique, counts = np.unique(labels, return_counts=True)
+        unique, counts = np.unique(class_idxs, return_counts=True)
         for u, c in zip(unique, counts):
             summary.append({
                 "Label": u,
