@@ -7,22 +7,12 @@ from config.general import INSTRUMENTS
 from rich.progress import Progress
 
 
-@click.group()
-def cli():
-    pass
-
-
-@cli.command()
-@click.argument("input_path", type=click.Path(exists=True))
-@click.argument("out_path", type=click.Path(dir_okay=False))
-@click.option("--label", "-l", type=click.Choice(INSTRUMENTS.labels()))
-@click.option("--verbose", "-v", is_flag=True)
 def save(
     input_path: str,
     out_path: str,
+    class_map,
     label: str | None = None,
-    verbose: bool = False,
-    class_map = INSTRUMENTS
+    verbose: bool = False
 ):
     paths, labels = collect_files(input_path, label)
 
@@ -45,5 +35,20 @@ def save(
     tfr.write_tfrecord(mels, labels, out_path, None, verbose)
 
 
+@click.command()
+@click.argument("input_path", type=click.Path(exists=True))
+@click.argument("out_path", type=click.Path(dir_okay=False))
+@click.option("--label", "-l", type=click.Choice(INSTRUMENTS.labels()))
+@click.option("--verbose", "-v", is_flag=True)
+def main(
+    input_path: str,
+    out_path: str,
+    class_map = INSTRUMENTS,
+    label: str | None = None,
+    verbose: bool = False
+):
+    save(input_path, out_path, class_map, label, verbose)
+
+
 if __name__ == "__main__":
-    cli()
+    main()
