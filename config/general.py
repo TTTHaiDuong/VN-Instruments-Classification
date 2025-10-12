@@ -1,7 +1,6 @@
 import tensorflow as tf
 import config.types as type
 from scripts.f1_score import MacroF1Score
-from pydantic import BaseModel
 
 
 # Main model path
@@ -41,21 +40,35 @@ INSTRUMENTS = type.InstrumentRegistry([
 ])
 
 
-# Mel-spectrogram processing parameters
-
 MEL_CONFIG = type.MelConfig(
-    target_dbfs  = -60.0,
-    sr           = 22050,
-    duration     = 5,
-    hop_length   = 512,
-    n_fft        = 2048,
-    n_mels       = 128,
-    fmin         = 20,
-    fmax         = None,         # None -> sr/2
-    top_db       = 80,
-    pre_emphasis = 0.97,
-    normalize    = "minmax_0_1", # "minmax_0_1" | "zscore"
-    pad_mode     = "constant"
+    target_dbfs     = -60.0,
+    sr              = 22050,
+    duration        = 5,
+    hop_length      = 512,
+    n_fft           = 2048,
+    n_mels          = 128,
+    fmin            = 20,
+    fmax            = None,         # None -> sr/2
+    top_db          = 80,
+    pre_emphasis    = 0.97,
+    normalize       = "minmax_0_1", # "minmax_0_1" | "zscore"
+    pad_mode        = "constant"
+)
+
+
+TRAIN_CONFIG = type.TrainConfig(
+    input_shape             = (128, 212, 3),
+    batch_size              = 32,
+    validation_batch_size   = 64,
+    epochs                  = 50
+)
+
+
+CALLBACK_CONFIG = type.CallbackConfig(
+    early_patience      = 10,
+    reduce_lr_patience  = 7,
+    reduce_lr_factor    = 0.5,
+    min_lr              = 1e-6
 )
 
 
@@ -127,29 +140,6 @@ LOSS = "sparse_categorical_crossentropy"  # Loss function for multi-class classi
 BATCH_SIZE = 128                   # Training batch size
 EPOCHS = 50                        # Number of training epochs
 VALIDATION_BATCH_SIZE = 128        # Validation batch size
-
-
-
-# ========== Training Callbacks Configuration ==========
-
-class TrainConfig(BaseModel):
-    input_shape: tuple[int, int, int] = (128, 212, 3)
-    class_names: list[str] = ["danbau", "dannhi", "dantranh", "dantrung", "sao"]
-    batch_size: int = 32
-    validation_batch_size: int = 64
-    epochs: int = 50
-
-TRAIN_CONFIG = TrainConfig()
-
-
-class CallbackConfig(BaseModel):
-    early_patience: int = 10
-    
-    reduce_lr_patience: int = 7
-    reduce_lr_factor: float = 0.5
-    min_lr: float = 1e-6
-
-CALLBACK_CONFIG = CallbackConfig()
 
 
 # Model checkpoint configuration

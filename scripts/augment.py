@@ -10,11 +10,11 @@ class BackgroundNoiseParams(TypedDict):
 
 
 class AUGMethods(TypedDict, total=False):
-    pitch_shift:    tuple[float, float]
-    time_stretch:   tuple[float, float]
-    add_noise:      tuple[float, float]
-    volume:         tuple[float, float]
-    time_mask:      tuple[float, float]
+    pitch_shift:      tuple[float, float]
+    time_stretch:     tuple[float, float]
+    add_noise:        tuple[float, float]
+    volume:           tuple[float, float]
+    time_mask:        tuple[float, float]
     background_noise: BackgroundNoiseParams
 
 
@@ -28,7 +28,7 @@ def _pitch_shift(y, sr, params):
 
 
 @register(AUGMENT_REGISTRY, "time_stretch")
-def _time_stretch(y, _, params):
+def _time_stretch(y, sr, params):
     rate = np.random.uniform(*params)
     try:
         return librosa.effects.time_stretch(y, rate=rate)
@@ -37,14 +37,14 @@ def _time_stretch(y, _, params):
     
 
 @register(AUGMENT_REGISTRY, "add_noise")
-def _add_noise(y, _, params):
+def _add_noise(y, sr, params):
     mean, std = params
     noise = np.random.normal(mean, std, len(y))
     return y + noise
     
 
 @register(AUGMENT_REGISTRY, "volume")
-def _volume(y, _, params):
+def _volume(y, sr, params):
     min_db, max_db = params
     db_change = np.random.uniform(min_db, max_db)
     factor = 10.0 ** (db_change / 20.0)

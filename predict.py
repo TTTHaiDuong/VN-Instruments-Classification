@@ -133,7 +133,7 @@ def predict_endpoint(
 @click.option("--model_index", "-i", type=int, default=1, callback=validate_model_idx)
 @click.option("--display_chart", "-d", is_flag=True)
 @click.option("--threshold", "-t", type=float, default=0.6)
-def cli(
+def main(
     mode: str,
     file_path: str,
     model_path: str, 
@@ -164,4 +164,4 @@ def cli(
 
 
 if __name__ == "__main__":
-    cli()
+    main()

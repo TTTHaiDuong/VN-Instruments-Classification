@@ -51,3 +51,18 @@ class MelConfig(BaseModel):
     pre_emphasis: Optional[float]
     normalize: Literal["minmax_0_1", "zscore"] # "minmax_0_1" | "zscore"
     pad_mode: str
+
+
+class TrainConfig(BaseModel):
+    input_shape: tuple[int, int, int]
+    batch_size: int
+    validation_batch_size: int
+    epochs: int
+
+
+class CallbackConfig(BaseModel):
+    early_patience: int = 10
+    
+    reduce_lr_patience: int = 7
+    reduce_lr_factor: float = 0.5
+    min_lr: float = 1e-6

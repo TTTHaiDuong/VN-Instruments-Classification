@@ -1,6 +1,5 @@
 import os, click
 import matplotlib.pyplot as plt
-import tensorflow as tf
 from config.general import TRAIN_CONFIG
 from build.datagen import from_images, load_tfrecords, np_dataset
 from datetime import datetime
@@ -15,58 +14,6 @@ MODEL_REGISTRY = {
     1: get_model1,
     2: get_model2
 }
-
-
-def fit_model(
-    model, 
-    checkpoint, 
-    early, 
-    reducelr, 
-    train_set,
-    y, 
-    val_set, 
-    class_weight = None,
-    cfg = TRAIN_CONFIG,
-    verbose = False,
-    **overrides
-):
-    """
-    Train the CNN model.
-
-    Parameters:
-        model: The CNN model instance.
-        checkpoint: Callback for saving the best model during training.
-        early: Callback for early stopping.
-        reducelr: Callback for reducing learning rate on plateau.
-        train_set: Training dataset.
-        val_set: Validation dataset.
-        class_weight: Dictionary mapping class indices to weights, to handle class imbalance.
-
-    Returns:
-        model_history: Training history object containing loss, metrics, etc.
-    """
-    destin_cfg = cfg.model_copy(update=overrides)
-
-    model.compile(
-        loss = config.LOSS, 
-        optimizer = config.OPTIMIZER, 
-        metrics = config.METRICS,
-        # weighted_metrics =
-    )
-    
-    model_history = model.fit(
-        train_set,
-        y,
-        validation_data = val_set, 
-        batch_size = destin_cfg.batch_size, 
-        validation_batch_size = cfg.validation_batch_size,
-        epochs = destin_cfg.epochs, 
-        callbacks = [cb for cb in [early, checkpoint, reducelr] if cb],
-        verbose = verbose,
-        # class_weight = class_weight
-    )
-    return model_history
-
 
 def save_training_plot(
     history, 
@@ -174,8 +121,6 @@ def train(
         verbose = verbose,
         # class_weight = class_weight
     )
-
-    # history = fit_model(model, check, early, reduce, train_set=train_set[0], y=train_set[1], val_set=val_set)
     
     if training_plot:
         save_training_plot(model_history)
