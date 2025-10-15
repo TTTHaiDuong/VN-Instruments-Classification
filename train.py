@@ -19,6 +19,7 @@ MODEL_REGISTRY = {
 def save_training_plot(
     history, 
     fpath_out: str,
+    show = True
 ):
     """
     Plot and save the training history graph with a timestamp in the filename.
@@ -52,7 +53,11 @@ def save_training_plot(
 
     plt.tight_layout()
     plt.savefig(fpath_out, dpi=300)
-    plt.close()
+    
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
     print(f"Plot successfully saved at: {fpath_out}")
 
