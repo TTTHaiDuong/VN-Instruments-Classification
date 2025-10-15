@@ -2,6 +2,14 @@ import random, os
 from rich.console import Console
 from rich.table import Table
 from collections import defaultdict
+from pathlib import Path
+
+
+class SafeDict(dict):
+    """Dict an toàn cho format string — không lỗi khi thiếu key."""
+    def __missing__(self, key):
+        # Có thể return "" hoặc tên placeholder gốc
+        return f"{{{key}}}"
 
 
 def to_mm_ss(seconds: int) -> str:
@@ -35,10 +43,10 @@ def unique_filename(base_path: str, padding=0):
         counter += 1
 
 
-def collect_files(
-    input_path: str, 
-    class_name: str | None = None
-) -> tuple[list[str], list[str | None]]:
+def collect_data_files(
+    input_path: str,
+    file_format: str | tuple[str, ...] | None = None
+) -> tuple[list[str], list[str]]:
     """Trả về danh sách các đường dẫn mẫu âm thanh và nhãn (file_path, class_name).
 
     Args:
@@ -47,23 +55,32 @@ def collect_files(
         - Đường dẫn thư mục chứa các loại âm thanh cùng nhãn
         - Đường dẫn thư mục chứa các loại âm thanh được phân loại ra từng thư mục riêng (danbau, dannhi,...)
     """
-    if os.path.isfile(input_path):
-        return [input_path], [class_name]
+    src_path = Path(input_path)
 
-    paths, labels = [], []
-    classes = [d for d in os.listdir(input_path) if os.path.isdir(os.path.join(input_path, d))] or [""]
-    for cls in classes:
-        class_dir = os.path.join(input_path, cls) if cls else input_path
-        for f in os.listdir(class_dir):
-            if f.endswith((".wav", ".mp3")) or True:
-                file_path = os.path.join(class_dir, f)
-                paths.append(file_path)
-                labels.append(cls if cls else class_name)
-    return paths, labels
+    if file_format:
+        if isinstance(file_format, str):
+            file_format = (file_format,)
+        file_format = tuple(
+            ext if ext.startswith(".") else f".{ext}" for ext in file_format
+        )
+
+    if src_path.is_file():
+        return [str(src_path)], [src_path.parent.name]
+
+    fpaths, labels = [], []
+    subdirs = [d for d in src_path.iterdir() if d.is_dir()] or [src_path]
+
+    for cls in subdirs:
+        for f in cls.iterdir():
+            if f.is_file() and (not file_format or f.suffix in file_format):
+                fpaths.append(str(f))
+                labels.append(cls.name)
+
+    return fpaths, labels
 
 
-def limit_files_per_class(
-    file_paths: list[str], 
+def limit_per_class(
+    fpaths: list[str], 
     labels: list[str], 
     max_per_class: int, 
     shuffle = False, 
@@ -94,15 +111,15 @@ def limit_files_per_class(
         Danh sách label tương ứng với file đã được lọc.
     """
     # Gom file theo nhãn
-    files_by_label = defaultdict(list)
-    for path, label in zip(file_paths, labels):
-        files_by_label[label].append(path)
+    fpaths_by_label = defaultdict(list)
+    for f, label in zip(fpaths, labels):
+        fpaths_by_label[label].append(f)
 
-    filtered_paths, filtered_labels = [], []
+    filtered_fpaths, filtered_labels = [], []
 
     logs = []
     # Lọc file cho từng nhãn
-    for label, paths in files_by_label.items():
+    for label, paths in fpaths_by_label.items():
         if shuffle:
             random.seed(seed)
             sampled_paths = random.sample(paths, min(max_per_class, len(paths)))
@@ -110,7 +127,7 @@ def limit_files_per_class(
             sampled_paths = paths[:max_per_class]
 
         samples_len = len(sampled_paths)
-        filtered_paths.extend(sampled_paths)
+        filtered_fpaths.extend(sampled_paths)
         filtered_labels.extend([label] * samples_len)
 
         if verbose:
@@ -121,9 +138,9 @@ def limit_files_per_class(
             })
 
     if verbose:
-        print_table(logs, "Samples Found", show_header=False, box=False, column_styles={ "Label": {"justify": "left" }})
+        print_table(logs, "Samples Found", show_header=False, box=False, column_styles={ "Label": {"justify": "right" }})
 
-    return filtered_paths, filtered_labels
+    return filtered_fpaths, filtered_labels
 
 
 def print_table(

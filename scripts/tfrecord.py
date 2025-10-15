@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from scripts.utils import print_table
+from pathlib import Path
 
 
 def _bytes_feature(value: tf.Tensor | np.ndarray | str | bytes) -> tf.train.Feature:
@@ -21,13 +22,13 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
-def serialize_example(mel: np.ndarray, label: int, file_id: str = "") -> tf.train.Example:
+def serialize_example(mel: np.ndarray, class_idx: int, file_id: str = "") -> tf.train.Example:
     feature = {
         "mel": _bytes_feature(mel.tobytes()),      # lưu mảng float32 dạng bytes
         "shape": _int64_feature(mel.shape[0]),     # chiều cao H
         "width": _int64_feature(mel.shape[1]),     # chiều rộng W
         "channels": _int64_feature(mel.shape[2]),  # số kênh C
-        "label": _int64_feature(label),
+        "class_idx": _int64_feature(class_idx),
         "id": _bytes_feature(file_id)
     }
     return tf.train.Example(features=tf.train.Features(feature=feature))
@@ -36,13 +37,16 @@ def serialize_example(mel: np.ndarray, label: int, file_id: str = "") -> tf.trai
 def write_tfrecord(
     mels: list[np.ndarray], 
     class_idxs: list[int], 
-    filename: str, 
+    fpath_out: str, 
     ids: list[str] | None = None,
     verbose: bool = False
 ):
+    out_path = Path(fpath_out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
     logs = []
 
-    with tf.io.TFRecordWriter(filename) as writer:
+    with tf.io.TFRecordWriter(str(out_path)) as writer:
         for i, (ml, lbl) in enumerate(zip(mels, class_idxs)):
             file_id = ids[i] if ids is not None else ""
             example = serialize_example(ml.astype(np.float32), lbl, file_id)
@@ -80,7 +84,7 @@ def parse_example(example_proto) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         "shape": tf.io.FixedLenFeature([], tf.int64),
         "width": tf.io.FixedLenFeature([], tf.int64),
         "channels": tf.io.FixedLenFeature([], tf.int64),
-        "label": tf.io.FixedLenFeature([], tf.int64),
+        "class_idx": tf.io.FixedLenFeature([], tf.int64),
         "id": tf.io.FixedLenFeature([], tf.string)
     }
     parsed = tf.io.parse_single_example(example_proto, feature_description)
@@ -92,7 +96,7 @@ def parse_example(example_proto) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
     mel = tf.io.decode_raw(parsed["mel"], tf.float32)
     mel = tf.reshape(mel, (H, W, C))
 
-    label = parsed["label"]
+    class_idx = parsed["class_idx"]
     file_id = parsed["id"]
 
-    return mel, label, file_id
+    return mel, class_idx, file_id

@@ -60,8 +60,8 @@ def get_model2(input_shape = (128, 128, 3), n_class = 4):
         os.makedirs(os.path.join(CHECKPOINT_PATH, 'model2'))
 
     checkpoint= DualCheckpoint(
-        filepath1 = os.path.join(CHECKPOINT_PATH, 'model2', 'model2_epoch{epoch:02d}_{val_macro_f1_score:.4f}.weights.h5'),
-        filepath2 = os.path.join(BEST_MODEL, 'model2.h5'),
+        checkpoint_dpath = os.path.join(CHECKPOINT_PATH, 'model2', 'model2_epoch{epoch:02d}_{val_macro_f1_score:.4f}.weights.h5'),
+        best_fpath = os.path.join(BEST_MODEL, 'model2.h5'),
         monitor = "val_macro_f1_score",
         mode="max",
         save_best_only = True,

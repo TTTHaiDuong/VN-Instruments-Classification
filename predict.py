@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scripts.predict as pred 
 from typing import BinaryIO
+from matplotlib.ticker import FuncFormatter
 from train import validate_model_idx
 from scripts.utils import to_mm_ss
-from matplotlib.ticker import FuncFormatter
 from config.general import MEL_CONFIG, INSTRUMENTS, MAIN_MODEL, TRAIN_CONFIG
 
 
@@ -37,34 +37,12 @@ def plot_segment_probabilities(
     plt.show()
 
 
-def summary_result_report(
-    mean_probs,
-    voting_ratios,
-    class_names
-):
-    predicted_class_mean = class_names[np.argmax(mean_probs)]
-    predicted_class_vote = class_names[np.argmax(voting_ratios)]
-
-    print("\n[Averaged Softmax Probabilities]")
-    for name, ratio in zip(class_names, mean_probs):
-        print(f"{name}: {ratio:.2f}%")
-
-    print(f"Predicted (Avg): {predicted_class_mean}")
-    if np.any(voting_ratios):
-        print("\n[Voting Based on Confidence Threshold]")
-        for name, ratio in zip(class_names, voting_ratios):
-            print(f"{name}: {ratio:.2f}%")
-        print(f"Predicted (Voting): {predicted_class_vote}")
-    else:
-        print("\nNo segments passed the confidence threshold.")
-
-
 def predict_endpoint(
     model_path: str,
     model_index: int, 
     file_or_buffer: str | BinaryIO, 
-    class_names: list[str],
     threshold: float,
+    class_map = INSTRUMENTS,
     segment_len: float | None = None,
     verbose = False
 ):
@@ -105,9 +83,10 @@ def predict_endpoint(
     )
     mean_probs, voting_ratios = pred.mean_voting_probs(segments_info)
 
-    predicted_class_mean = class_names[np.argmax(mean_probs)]
-    predicted_class_vote = class_names[np.argmax(voting_ratios)]
-
+    predicted_class_mean = class_map.index_to_name(np.argmax(mean_probs))
+    predicted_class_vote = class_map.index_to_name(np.argmax(voting_ratios))
+    class_names = class_map.names()
+    
     if verbose:
         print("\n[Averaged Softmax Probabilities]")
         for name, ratio in zip(class_names, mean_probs):
@@ -133,15 +112,15 @@ def predict_endpoint(
 @click.option("--model_index", "-i", type=int, default=1, callback=validate_model_idx)
 @click.option("--display_chart", "-d", is_flag=True)
 @click.option("--threshold", "-t", type=float, default=0.6)
-def main(
+def predict(
     mode: str,
     file_path: str,
     model_path: str, 
     model_index: int, 
     display_chart: bool, 
     threshold: float, 
+    class_map = INSTRUMENTS,
     input_shape = TRAIN_CONFIG.input_shape,
-    class_names: list[str] = INSTRUMENTS.names(),
     verbose = True
 ):
     if mode == "audio":
@@ -149,19 +128,19 @@ def main(
             model_path=model_path,
             model_index=model_index, 
             file_or_buffer=file_path, 
-            class_names=class_names, 
+            class_map=class_map, 
             threshold=threshold, 
             verbose=verbose
         )
         if display_chart:
-            plot_segment_probabilities(result[3], class_names, threshold)
+            plot_segment_probabilities(result[3], class_map.names(), threshold)
     
     elif mode == "img":
         model = pred.load_model(model_path, model_index)
         probs = pred.from_img(model, file_path, input_shape, verbose)
-        class_name = class_names[np.argmax(probs, axis=0)]
+        class_name = class_map.index_to_name(np.argmax(probs, axis=0))
         print("Predicted class:", class_name, "| Probs:", np.round(probs, 3))
 
 
 if __name__ == "__main__":
-    main()
+    predict()

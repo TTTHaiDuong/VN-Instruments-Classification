@@ -3,14 +3,12 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn.metrics as metrics
-from typing import cast
-from train import validate_model_idx
-from scripts.utils import register
-from config.general import MAIN_MODEL, INSTRUMENTS
-from scripts.utils import collect_files, limit_files_per_class
-from scripts.predict import load_model, collect_mels
 from sklearn.preprocessing import label_binarize
+from train import validate_model_idx
+from scripts.utils import collect_data_files, limit_per_class, register
+from scripts.predict import load_model, collect_mels
 from scripts.preprocess_image import load_image
+from config.general import MAIN_MODEL, INSTRUMENTS
 
 
 EVAL_REGISTER = {}
@@ -146,7 +144,7 @@ def pr_curve(
 @click.option("--model_index", "-i", type=int, default=1, callback=validate_model_idx)
 @click.option("--plots_metrics", "-m", multiple=True, type=click.Choice(list(EVAL_REGISTER.keys())), default=("score",))
 @click.option("--verbose", "-v", is_flag=True)
-def cli(
+def eval(
     mode: str,
     test_path: str,
     model_path,
@@ -158,14 +156,10 @@ def cli(
     class_map = INSTRUMENTS,
     verbose = False
 ):
-    paths, labels = collect_files(test_path)
+    paths, labels = collect_data_files(test_path)
 
-    if None in labels:
-        raise ValueError(f"Missing `label` for {paths[labels.index(None)]}")
-    labels = cast(list[str], labels)
-
-    paths, labels = limit_files_per_class(
-        file_paths=paths, 
+    paths, labels = limit_per_class(
+        fpaths=paths, 
         labels=labels, 
         max_per_class=max_per_class,
         shuffle=shuffle,
@@ -201,7 +195,7 @@ def cli(
 
 
 if __name__ == "__main__":
-    cli()
+    eval()
 
     # import librosa
     # from scripts.mel_spectrogram import to_mel

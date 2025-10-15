@@ -1,12 +1,12 @@
-import click, os, random, re, yaml, librosa
+import click, random, re, yaml, librosa
 import matplotlib.pyplot as plt
 import soundfile as sf
-from config.general import MEL_CONFIG
-from scripts.mel_spectrogram import to_mel
+from typing import Literal
 from pathlib import Path
 from scripts.augment import augment_audio, AUGMethods
-from scripts.utils import collect_files
-from typing import Literal
+from scripts.utils import collect_data_files
+from scripts.mel_spectrogram import to_mel
+from config.general import MEL_CONFIG
 
 
 def safe_str(x):
@@ -47,37 +47,35 @@ def params_to_str(params):
 
 
 def save_augmented_audio(
-    file_path: str, 
-    out_dir: str,
+    fpath_in: str, 
+    fpath_out: str,
     methods: AUGMethods,
-    mode: Literal["img", "audio"] = "img",
-    mel_cfg = MEL_CONFIG,
-    **overrides
+    sr_to: int | float | None = None
 ):
-    """"""
-    destin_mel_cfg = mel_cfg.model_copy(update=overrides)
-    
-    y, sr = librosa.load(file_path, sr=destin_mel_cfg.sr)
+    """"""    
+    y, sr = librosa.load(fpath_in, sr=sr_to)
     augmented = augment_audio(y, methods, sr=sr)
-    
-    base_name = Path(file_path).stem
-    suffix = ("__" + params_to_str(methods)) if methods else ""
 
-    if mode == "img":
-        mel_spec = to_mel(
-            augmented,
-            sr_in=sr
-        )
-        out_file = os.path.join(out_dir, f"{base_name}{suffix}.png")
-        plt.imsave(out_file, mel_spec[:, :, 0], cmap="magma")
-    elif mode == "audio":
-        out_file = os.path.join(out_dir, f"{base_name}{suffix}.wav")
-        sf.write(out_file, augmented, destin_mel_cfg.sr)
+    out_path = Path(fpath_out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    ext = out_path.suffix.lower()
 
-    print(f"Saved: {out_file}")
+    if ext == ".png":
+        mel_spec = to_mel(augmented, sr_in=sr)
+        plt.imsave(out_path, mel_spec[:, :, 0], cmap="magma")
+    elif ext == ".wav":
+        sf.write(out_path, augmented, sr)
+    else:
+        raise ValueError(f"Không hỗ trợ định dạng: {ext}")
+
+    print(f"Saved: {out_path}")
 
 
-def generate_augment_plan(file_paths: list, labels: list, augment_plan: dict) -> list[tuple[str, AUGMethods]]:
+def generate_augment_plan(
+    fpaths: list, 
+    labels: list, 
+    augment_plan: dict
+) -> tuple[list[str], list[AUGMethods]]:
     """
     Sinh danh sách (filepath, label, methods_dict) từ AUGMENT_PLAN.
 
@@ -88,19 +86,19 @@ def generate_augment_plan(file_paths: list, labels: list, augment_plan: dict) ->
     Returns:
         list: [(filepath, label, {method: params, ...}), ...]
     """
-    tasks = []
+    fpaths_out, tasks = [], []
 
     # gom file theo class từ list
-    files_by_class = {} # { "danbau": ["danbau001.wav", "danbau002.wav"], "dannhi": [] }
-    for f, cls in zip(file_paths, labels):
-        files_by_class.setdefault(cls, []).append(f)
+    fpaths_by_class = {} # { "danbau": ["danbau001.wav", "danbau002.wav"], "dannhi": [] }
+    for f, cls in zip(fpaths, labels):
+        fpaths_by_class.setdefault(cls, []).append(f)
 
     # cls: "danbau", cfg: { "allow_overlap": bool, methods: [] }
     for cls, cfg in augment_plan.items():
-        if cls not in files_by_class:
+        if cls not in fpaths_by_class:
             continue
 
-        files = files_by_class[cls]
+        files = fpaths_by_class[cls]
         allow_overlap = cfg.get("allow_overlap", False)
 
         # method_cfg: { "pitch_shift": (x, y), "time_stretch": (...) }
@@ -114,9 +112,10 @@ def generate_augment_plan(file_paths: list, labels: list, augment_plan: dict) ->
                 chosen_files = random.sample(files, min(count, len(files)))
 
             for f in chosen_files:
-                tasks.append((f, method_cfg))
+                fpaths_out.append(f)
+                tasks.append(method_cfg)
 
-    return tasks
+    return fpaths_out, tasks
 
 
 @click.group()
@@ -126,36 +125,42 @@ def cli():
 
 @cli.command()
 @click.argument("input_path", type=click.Path(exists=True))
-@click.argument("output_dir", type=click.Path(exists=True, file_okay=False))
-@click.argument("plan_file", type=click.Path(exists=True, dir_okay=False))
-@click.option("--mode", "-m", type=click.Choice(["img", "audio"]), default="img")
+@click.argument("dpath_out", type=click.Path(exists=True, file_okay=False))
+@click.argument("plan_fpath", type=click.Path(exists=True, dir_okay=False))
+@click.option("--mode", "-m", type=click.Choice(["img", "audio"]), default="audio")
 def save(
     input_path: str,
-    output_dir: str,
-    plan_file: str,
-    class_name: str = "",
-    save_mode: Literal["img", "audio"] = "img"
+    dpath_out: str,
+    plan_fpath: str,
+    mode: Literal["audio", "img"] = "audio",
+    sr = MEL_CONFIG.sr
 ):
     """
     Convert audio file(s) from input_path into augmented Mel-spectrogram images
     according to AUGMENT_PLAN.
     """
-    paths, labels = collect_files(input_path, class_name)
+    fpaths, labels = collect_data_files(input_path, ".wav")
 
-    with open(plan_file, "r", encoding="utf-8") as f:
+    with open(plan_fpath, "r", encoding="utf-8") as f:
         augment_plan = yaml.safe_load(f)
-    tasks = generate_augment_plan(paths, labels, augment_plan)
+    aug_fpaths, tasks = generate_augment_plan(fpaths, labels, augment_plan)
 
-    for file_path, methods in tasks:
+    for f, methods in zip(aug_fpaths, tasks):
+        base_name = Path(f).stem
+        suffix = "__" + params_to_str(methods) if methods else ""
+        ext = ".wav" if mode == "audio" else ".png"
+
+        fpath_out = str(Path(dpath_out) / f"{base_name}{suffix}{ext}")
+
         try:
             save_augmented_audio(
-                file_path,
-                output_dir,
-                methods,
-                mode=save_mode,
+                fpath_in=f,
+                fpath_out=fpath_out,
+                methods=methods,
+                sr_to=sr
             )
         except Exception as e:
-            print(f"Error saving {file_path}: {e}")
+            print(f"Error saving {f}: {e}")
 
 
 if __name__ == "__main__":
@@ -179,11 +184,11 @@ if __name__ == "__main__":
     # # print("\n".join(map(str, collect_audio_files("rawdata/train"))))
     # # print("\n".join(map(str, collect_audio_files("rawdata/train/danbau", "danbau"))))
     # # print("\n".join(map(str, collect_audio_files("rawdata/train/danbau/danbau001.wav", "danbau"))))
-    # # save_augment(
-    # #     "rawdata/train",
-    # #     "test",
-    # #     a
-    # # )
+    # save_augment(
+    #     "rawdata/train",
+    #     "test",
+    #     a
+    # )
     # print("\n".join(map(str, generate_augment_plan(
     #     [
     #         ("rawdata/train/danbau/danbau001.wav", "danbau"),

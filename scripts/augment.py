@@ -23,6 +23,22 @@ AUGMENT_REGISTRY = {}
 
 @register(AUGMENT_REGISTRY, "pitch_shift")
 def _pitch_shift(y, sr, params):
+    """
+    Dịch cao độ (pitch) của tín hiệu âm thanh theo số bán cung ngẫu nhiên.
+
+    Args:
+        y (np.ndarray): Mảng sóng âm thanh đầu vào.
+        sr (int): Tần số lấy mẫu.
+        params (tuple[float, float]): Khoảng ngẫu nhiên (min, max) số bán cung để dịch.
+
+    Returns:
+        np.ndarray: Âm thanh sau khi đã dịch cao độ.
+
+    Ghi chú:
+        - n_steps dương → tăng cao độ (âm cao hơn).
+        - n_steps âm → giảm cao độ (âm trầm hơn).
+        - Thường dùng khoảng [-1, 1] hoặc [-2, 2] bán cung để tăng tính đa dạng mà không làm méo âm quá mức.
+    """
     n_steps = np.random.uniform(*params)
     return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 

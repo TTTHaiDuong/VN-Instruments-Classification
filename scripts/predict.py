@@ -42,18 +42,18 @@ def split_to_mels(
     return mels
 
 
-def collect_mels(file_paths: list[str]) -> list[np.ndarray]:
+def collect_mels(fpaths: list[str]) -> list[np.ndarray]:
     """Chuyển các file âm thanh thành melsp.
     Các file âm thanh này là mẫu thuộc dataset, tất cả nên chuẩn hoá thời lượng trước.
     """
     with Progress() as progress:
         task = progress.add_task(
-            "[magenta]Extracting Mel-spectrograms...", total=len(file_paths)
+            "[magenta]Extracting Mel-spectrograms...", total=len(fpaths)
         )
         
         mels = []
-        for path in file_paths:
-            y, sr = librosa.load(path)
+        for fp in fpaths:
+            y, sr = librosa.load(fp)
             mel = to_mel(y, sr)
             mels.append(mel)
 
@@ -63,29 +63,29 @@ def collect_mels(file_paths: list[str]) -> list[np.ndarray]:
 
 
 def load_model(
-    model_path: str, 
+    model_fpath: str, 
     model_index: int | None = None
 ):
     """Load file mô hình đã huấn luyện dùng để dự đoán.
     Hỗ trợ file full cấu hình `.h5` và file chỉ lưu trọng số `.weight.h5`
     (file `.weight.h5` phải cung cấp thêm tham số `model_index`)
     """
-    if model_path.lower().endswith(".weights.h5"):
+    if model_fpath.lower().endswith(".weights.h5"):
         if not model_index:
             raise ValueError("Missing `model_index` when load .weight.h5 file.")
         
         model, _ = MODEL_REGISTRY[model_index]()
-        print(f"Loading model weights from: {model_path}")
-        model.load_weights(model_path)
+        print(f"Loading model weights from: {model_fpath}")
+        model.load_weights(model_fpath)
 
-    elif model_path.lower().endswith(".h5"):
-        print(f"Loading full model from: {model_path}")
+    elif model_fpath.lower().endswith(".h5"):
+        print(f"Loading full model from: {model_fpath}")
         model = tf.keras.models.load_model(
-            model_path,
+            model_fpath,
             custom_objects={"LeakyReLU": tf.keras.layers.LeakyReLU}
         )
     else:
-        raise ValueError(f"{model_path} must end with '.weights.h5' or '.h5'")
+        raise ValueError(f"{model_fpath} must end with '.weights.h5' or '.h5'")
     
     return model
 

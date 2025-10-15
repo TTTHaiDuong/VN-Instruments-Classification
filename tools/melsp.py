@@ -2,14 +2,14 @@ import click, os, librosa
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scripts.mel_spectrogram import to_mel
-from scripts.utils import collect_files
+from scripts.utils import collect_data_files
 from config.general import MEL_CONFIG
 
 
 def plot_mel(
     mel_db,
-    mel_cfg = MEL_CONFIG,
-    **overrides
+    duration: float,
+    n_mels: int,
 ):
     """
     Display a Mel-spectrogram as an image.
@@ -19,8 +19,6 @@ def plot_mel(
         duration (float): Duration of the audio (in seconds).
         n_mels (int): Number of Mel bands.
     """
-    destin_cfg = mel_cfg.model_copy(update=overrides)
-
     # Normalize the shape of mel_spec_db
     if len(mel_db.shape) == 3:
         if mel_db.shape[-1] == 1:
@@ -34,7 +32,7 @@ def plot_mel(
     
     plt.figure(figsize=(8, 4))
     plt.imshow(mel_db, aspect="auto", origin="upper",
-               extent=(0, destin_cfg.duration, 0, destin_cfg.n_mels), cmap="magma")
+               extent=(0, duration, 0, n_mels), cmap="magma")
     plt.colorbar(format="%+2.0f dB")
     plt.title("Mel-spectrogram")
     plt.xlabel("Time (s)")
@@ -69,41 +67,46 @@ def save(
         sr (int): Sampling rate for audio signal.
         input_shape (tuple): Desired input shape for CNN models (height, width, channels).
     """
-    paths, labels = collect_files(input_path)
+    fpaths, labels = collect_data_files(input_path, ".wav")
 
     if not bool(Path(out_path).suffix):
         os.makedirs(out_path, exist_ok=True)
 
-    for path, label in zip(paths, labels):
-        if path.endswith((".wav")):
-            base_name = Path(path).stem
-            # nếu như input_path là một file cụ thể thì cho phép đặt tên trực tiếp bằng out_path
-            # không thì sử dụng tên file input_path để đặt
-            out_dir = os.path.join(out_path, label or "")
-            out_file = (
-                out_path 
-                if len(paths) == 1 and bool(Path(out_path).suffix) 
-                else os.path.join(out_dir, f"{base_name}.png")
-            )
-            os.makedirs(out_dir, exist_ok=True)
+    for path, label in zip(fpaths, labels):
+        base_name = Path(path).stem
+        # nếu như input_path là một file cụ thể thì cho phép đặt tên trực tiếp bằng out_path
+        # không thì sử dụng tên file input_path để đặt
+        out_dir = os.path.join(out_path, label or "")
+        fpath_out = (
+            out_path 
+            if len(fpaths) == 1 and bool(Path(out_path).suffix) 
+            else os.path.join(out_dir, f"{base_name}.png")
+        )
+        os.makedirs(out_dir, exist_ok=True)
 
-            y, sr = librosa.load(path)
-            mel = to_mel(y, sr)
-            try:
-                plt.imsave(out_file, mel[:, :, 0], cmap="magma")
-                print(f"Saved: {out_file}")
-            except Exception as e:
-                print(f"Error processing: {e}")
-        else:
-            print(f"Unsupported audio format: {path}")
+        y, sr = librosa.load(path)
+        mel = to_mel(y, sr)
+        try:
+            plt.imsave(fpath_out, mel[:, :, 0], cmap="magma")
+            print(f"Saved: {fpath_out}")
+        except Exception as e:
+            print(f"Error processing: {e}")
     
 
 @cli.command()
-@click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
-def display(file_path):
-    y, sr = librosa.load(file_path)
-    mel_spec = to_mel(y, sr)
-    plot_mel(mel_spec)
+@click.argument("fpath", type=click.Path(exists=True, dir_okay=False))
+def display(
+    fpath,
+    duration = MEL_CONFIG.duration,
+    n_mels = MEL_CONFIG.n_mels
+):
+    y, sr = librosa.load(fpath)
+    mel = to_mel(y, sr)
+    plot_mel(
+        mel_db=mel, 
+        duration=duration, 
+        n_mels=n_mels
+    )
 
 
 if __name__ == "__main__":

@@ -1,13 +1,14 @@
 import os, click
+import config.general as config
 import matplotlib.pyplot as plt
-from config.general import TRAIN_CONFIG
-from build.datagen import from_images, load_tfrecords, np_dataset
+from typing import Literal
+from pathlib import Path
 from datetime import datetime
+from build.datagen import from_images, load_tfrecords, np_dataset
 from build.callbacks import get_callbacks
 from build.model1 import get_model1
 from build.model2 import get_model2
-import config.general as config
-from typing import Literal
+from config.general import TRAIN_CONFIG
 
 
 MODEL_REGISTRY = {
@@ -17,8 +18,7 @@ MODEL_REGISTRY = {
 
 def save_training_plot(
     history, 
-    file_prefix="training_plot",
-    save_at = ""
+    fpath_out: str,
 ):
     """
     Plot and save the training history graph with a timestamp in the filename.
@@ -27,11 +27,8 @@ def save_training_plot(
         history: History object returned from model.fit().
         prefix (str): Prefix for the filename.
     """
-    os.makedirs(config.TRAIN_HISTORY_PATH, exist_ok=True)
-    
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{file_prefix}_{timestamp}.png"
-    full_path = os.path.join(config.TRAIN_HISTORY_PATH, filename)
+    out_path = Path(fpath_out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     plt.figure(figsize=(12, 4))
 
@@ -54,10 +51,10 @@ def save_training_plot(
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig(full_path, dpi=300)
+    plt.savefig(fpath_out, dpi=300)
     plt.close()
 
-    print(f"Plot successfully saved at: {full_path}")
+    print(f"Plot successfully saved at: {fpath_out}")
 
 
 def validate_model_idx(ctx, param, value):
@@ -69,29 +66,29 @@ def validate_model_idx(ctx, param, value):
 
 
 @click.command()
+@click.argument("mode", type=click.Choice(["img", "tfr"]), default="tfr")
 @click.option("--model_index", "-i", type=int, default=1, callback=validate_model_idx)
 @click.option("--image_augment", "-a", is_flag=False)
-@click.option("--training_plot", "-t", is_flag=True)
-@click.option("--dataset_source", "-s", type=click.Choice(["img", "tfr"]), default="img")
+@click.option("--training_plot", "-t", is_flag=True, default=True)
 @click.option("--verbose", "-v", is_flag=True)
 def train(
+    mode: Literal["img", "tfr"],
     model_index: int, 
     image_augment: bool, 
     training_plot: bool,
-    dataset_source: Literal["img", "tfr"] = "img",
     cfg = TRAIN_CONFIG,
     verbose = False
 ):
     print(f"\n===== Training Model {model_index} =====")
 
-    if dataset_source == "img":
+    if mode == "img":
         train_set, val_set, _ = from_images(
             config.TRAIN_DATA, 
             config.VAL_DATA, 
             config.TEST_DATA, 
             image_augment
         )
-    elif dataset_source == "tfr":
+    elif mode == "tfr":
         train_set = load_tfrecords("tfrecord/train.tfrecord").shuffle(1000)
         X_train, y_train = np_dataset(train_set)
        
@@ -100,7 +97,7 @@ def train(
 
     model, model_name = MODEL_REGISTRY[model_index]()
     checkpoint, early, reducelr = get_callbacks(
-        checkpoint_path=os.path.join(config.CHECKPOINT_PATH, model_name, f"{model_name}_epoch{{epoch:02d}}_{{val_macro_f1_score:.4f}}.weights.h5"),
+        checkpoint_path=os.path.join(config.CHECKPOINT_PATH, model_name, f"{model_name}_ep{{epoch:02d}}_{{metric_name}}_{{metric_score:.4f}}_{{timestamp:%d%m%Y_%H%M%S}}.weights.h5"),
         bestmodel_path=os.path.join(config.BEST_MODEL, f"{model_name}.h5"),
     )
 
@@ -123,7 +120,11 @@ def train(
     )
     
     if training_plot:
-        save_training_plot(model_history)
+        timestamp = datetime.now().strftime('%d%m%Y_%H%M%S')
+        fname = f"{model_name}_train_plot_{timestamp}.png"
+        full_path = os.path.join(config.TRAIN_HISTORY_PATH, fname)
+
+        save_training_plot(model_history, full_path)
 
 
 if __name__ == "__main__":

@@ -95,6 +95,8 @@ def _postprocess_mel(
     # 1. normalize
     if cfg.normalize in NORMALIZE_REGISTRY:
         S = NORMALIZE_REGISTRY[cfg.normalize](S, top_db=cfg.top_db)
+    else:
+        raise ValueError(f"'{cfg.normalize}' is not implemented.")
     S = S.astype(np.float32)
 
     # 2. enforce shape

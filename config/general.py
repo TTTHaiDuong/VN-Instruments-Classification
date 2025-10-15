@@ -27,16 +27,14 @@ TRAIN_HISTORY_PATH = "train_history"
 
 
 # Class names and their corresponding directory labels
-CLASS_NAMES = ["Đàn bầu", "Đàn nhị", "Đàn tranh", "Đàn T'rưng", "Sáo"]
 CLASS_LABELS = ["danbau", "dannhi", "dantranh", "dantrung", "sao"]
-CLASS_MAP = { "danbau": 0, "dannhi": 1, "dantranh": 2, "dantrung": 3, "sao": 4 }
 
 INSTRUMENTS = type.InstrumentRegistry([
-    {"name": "Đàn bầu",   "label": "danbau",   "index": 0},
-    {"name": "Đàn nhị",   "label": "dannhi",   "index": 1},
-    {"name": "Đàn tranh", "label": "dantranh", "index": 2},
-    {"name": "Đàn T'rưng","label": "dantrung", "index": 3},
-    {"name": "Sáo",       "label": "sao",      "index": 4},
+    { "name": "Đàn bầu",    "label": "danbau",   "index": 0 },
+    { "name": "Đàn nhị",    "label": "dannhi",   "index": 1 },
+    { "name": "Đàn tranh",  "label": "dantranh", "index": 2 },
+    { "name": "Đàn T'rưng", "label": "dantrung", "index": 3 },
+    { "name": "Sáo",        "label": "sao",      "index": 4 },
 ])
 
 
